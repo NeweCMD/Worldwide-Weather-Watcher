@@ -11,7 +11,7 @@
 
 /*///////// INITIALISATION DES VARIABLES GLOBALES /////////*/
 
-char mode; /* Le code principal (hors configuration) fonctionnera en "state machine"
+char mode = 's'; /* Le code principal (hors configuration) fonctionnera en "state machine"
            cela signifie que la machine aura un nombre fini d'états possibles
            cette variable permet au code de savoir dans quel état il se trouve*/
 /* valeurs possibles : "c" : mode configuration, "s": mode standard, "e" : mode économie, "m" : mode maintenance*/
@@ -73,7 +73,19 @@ Si 30 minutes d'inactivitées sont passées, (ou si le bouton rouge est à nouve
 Le programme bascule en mode standard (en sortant de la boucle du mode configuration).*/
 /* principe pour la détection de commandes : utilisation d'un AFD, détection de la commande par AFD, puis d'un symbole "=", le reste de la chaine de caractères sera la valeur du paramètre entré */
 void configuration(){
-
+    /* ( secondes de délai avant toute intéraction afin d'éviter que le bouton rouge soit détécté immédiatement en appui (et un retour immédiat en mode standard)*/
+    HAL_Delay(4000);
+    for (int i=0; i<5; i++){
+        GroveRGB_SetColor(255,255,255); HAL_Delay(100);
+        GroveRGB_SetColor(255,255,0); HAL_Delay(100);
+    }
+    /*boucle pour le mod configuration*/
+    while (mode=='c'){
+        /* passage en mode standard si bouton rouge pressé*/
+        if (GroveButton1_IsPressed()==1){
+            mode='s';
+        }
+    }
 }
 
 /* Partie du code pour le mode prélèvement de données
@@ -92,13 +104,93 @@ void maintenance(){
 Il s'agit du "menu principal" de notre programme, qui permet d'initialiser les prélèvement et de changer de mode en cas d'appui de bouton
 */
 void hub_mode(){
+    /*utilisé pour le RGB de la LED pour les animations*/
+    int r,g,b;
+    while (true){
+        /* changement de la couleur de la LED en fonction du mode de fonctionnement*/
+        if (mode=='s'){
+            GroveRGB_SetColor(0,255,0);
+            r=0;
+            g=255;
+            b=0;
+        }
+        if (mode=='e'){
+            GroveRGB_SetColor(0,0,255);
+            r=0;
+            g=0;
+            b=255;
+        }
+        if (mode=='m'){
+            GroveRGB_SetColor(255,150,0);
+        }
+        /*détection du bouton rouge pour passage en mode maintenance*/
+        if (GroveButton1_IsPressed()==1){
+            /* i est utilisé pour l'animation de la LED*/
+            int i = 0 ;
+            while (GroveButton1_IsPressed()==1 && i <4){
+                if (mode!='m'){
+                    GroveRGB_SetColor(255,150,0); HAL_Delay(100);
+                    GroveRGB_SetColor(r,g,b); HAL_Delay(900);
+                }else{
+                    GroveRGB_SetColor(r,g,b); HAL_Delay(100);
+                    GroveRGB_SetColor(255,150,0); HAL_Delay(900);
+                }
+                i++;
+            }
+            if (i==4 && GroveButton1_IsPressed()==1){
+                if (mode!='m'){
+                    mode = 'm';
+                }else{
+                    if (r==0 && g==255 && b==0){
+                        mode = 's';
+                    }else{
+                        mode = 'e';
+                    }
+                }
+            }
+            i=0;
+        }
+        if (GroveButton2_IsPressed()==1){
+            int i = 0;
+            while (GroveButton2_IsPressed()==1 && i <4 && mode!='m'){
+                if (mode=='s'){
+                    GroveRGB_SetColor(0,0,255); HAL_Delay(100);
+                    GroveRGB_SetColor(0,255,0); HAL_Delay(900);
+                }else{
+                    GroveRGB_SetColor(0,255,0); HAL_Delay(100);
+                    GroveRGB_SetColor(0,0,255); HAL_Delay(900);
+                }
+                i++;
+            }
+            if (i==4 && GroveButton2_IsPressed()==1){
+                if (mode=='s'){
+                    mode='e';
+                }else{
+                    mode='s';
+                }
+            }
 
+        }
+
+    }
 }
 
 /* Cette fonction se lancera automatiquement au démarrage de la machine
 il s'agit de la fonction qui déterminera un lancement en mode configuration ou en mode standard*/
 void initialisation(){
+    /* initialisation des boutons et de la led du système */
+    GroveButton_Init();
+    GroveRGB_Init();
 
+    /* démarrage en mode configuration*/
+    if (GroveButton1_IsPressed()==1){
+        mode='c';
+        GroveRGB_SetColor(255,255,0);
+        configuration();
+    }
+    mode = 's';
+    hub_mode();
+    
 }
 
 int main(void)
@@ -106,4 +198,5 @@ int main(void)
     Global_Init();
     /* Appel de la fonction de configuration ici (si appui bouton rouge détecté au démarrage). */
     /* Appel du hub de modes */
+    initialisation();
 }
