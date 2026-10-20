@@ -71,6 +71,7 @@ int TIMEOUT = 30; /* durée en secondes avant que le capteur pélevant des donn�
 Objectif : sur appui du bouton vert, le système attend une entrée depuis l'interface série du microcontroleur.
 Si 30 minutes d'inactivitées sont passées, (ou si le bouton rouge est à nouveau pressé) .
 Le programme bascule en mode standard (en sortant de la boucle du mode configuration).*/
+/* principe pour la détection de commandes : utilisation d'un AFD, détection de la commande par AFD, puis d'un symbole "=", le reste de la chaine de caractères sera la valeur du paramètre entré */
 void configuration(){
 
 }
