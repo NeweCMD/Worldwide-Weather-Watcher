@@ -22,24 +22,56 @@ bool GroveRTC_Init(void)
 
 bool GroveRTC_GetDateTime(RTC_DateTime *dt)
 {
-    if (dt == 0) return false;
+    if (dt == NULL) return false;
 
     uint8_t reg = 0x00;
     uint8_t data[7] = {0};
 
-    if (HAL_I2C_Master_Transmit(&GROVE_I2C_HANDLE, DS1307_ADDR, &reg, 1, 100) != HAL_OK)
+    if (HAL_I2C_Master_Transmit(
+            &GROVE_I2C_HANDLE, DS1307_ADDR,
+            &reg, 1, 100) != HAL_OK)
         return false;
 
-    if (HAL_I2C_Master_Receive(&GROVE_I2C_HANDLE, DS1307_ADDR, data, 7, 100) != HAL_OK)
+    if (HAL_I2C_Master_Receive(
+            &GROVE_I2C_HANDLE, DS1307_ADDR,
+            data, 7, 100) != HAL_OK)
         return false;
 
-    dt->seconds   = bcd_to_dec(data[0] & 0x7F);
-    dt->minutes   = bcd_to_dec(data[1]);
-    dt->hours     = bcd_to_dec(data[2] & 0x3F);
-    dt->dayOfWeek = bcd_to_dec(data[3]);
-    dt->day       = bcd_to_dec(data[4]);
-    dt->month     = bcd_to_dec(data[5]);
+    // Secondes et minutes
+    dt->seconds = bcd_to_dec(data[0] & 0x7F);
+    dt->minutes = bcd_to_dec(data[1] & 0x7F);
+
+    // Heures : gestion des modes 12 h et 24 h
+    if (data[2] & 0x40)
+    {
+        // Mode 12 heures
+        uint8_t hour12 = bcd_to_dec(data[2] & 0x1F);
+        bool pm = (data[2] & 0x20) != 0;
+
+        if (hour12 < 1 || hour12 > 12)
+            return false;
+
+        dt->hours = (hour12 % 12) + (pm ? 12 : 0);
+    }
+    else
+    {
+        // Mode 24 heures
+        dt->hours = bcd_to_dec(data[2] & 0x3F);
+    }
+
+    dt->dayOfWeek = bcd_to_dec(data[3] & 0x07);
+    dt->day       = bcd_to_dec(data[4] & 0x3F);
+    dt->month     = bcd_to_dec(data[5] & 0x1F);
     dt->year      = 2000 + bcd_to_dec(data[6]);
+
+    // Vérification des valeurs
+    if (dt->seconds > 59 ||
+        dt->minutes > 59 ||
+        dt->hours > 23 ||
+        dt->day < 1 || dt->day > 31 ||
+        dt->month < 1 || dt->month > 12 ||
+        dt->year < 2000 || dt->year > 2099)
+        return false;
 
     return true;
 }
